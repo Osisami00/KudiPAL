@@ -183,11 +183,11 @@ def health():
 def chat(req: ChatRequest):
     return {"response": get_response(req.prompt)}
 
-if __name__ == "__main__":
-    if n_key:
-        ngrok.set_auth_token(n_key)
-        public_url = ngrok.connect(8000)
-        print("Ngrok tunnel:", public_url)
-        print("API Docs:", public_url + "/docs")
+# if __name__ == "__main__":
+#     if n_key:
+#         ngrok.set_auth_token(n_key)
+#         public_url = ngrok.connect(8000)
+#         print("Ngrok tunnel:", public_url)
+#         print("API Docs:", public_url + "/docs")
 
-    uvicorn.run(app, port=8000)
+
