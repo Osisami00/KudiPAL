@@ -49,8 +49,8 @@ async def summary(user_id: str, data: dict):
 
 
 @app.get("/invest")
-async def invest(user_id: str, amount: int):
-    return await investment_suggestion(amount, get_lang(user_id))
+async def invest(user_id: str):
+    return await investment_suggestion(get_lang(user_id))
 
 
 @app.get("/loan")
@@ -59,8 +59,8 @@ async def loan(user_id: str, amount: int, months: int):
 
 
 @app.get("/side-hustle")
-async def side_hustle(user_id: str, skills: str, urgency: str):
-    return await side_hustle_recommendation(skills, urgency, get_lang(user_id))
+async def side_hustle(skills: str):
+    return await side_hustle_recommendation(skills, get_lang(user_id))
 
 @app.post("/weekly-expense-report")
 async def weekly_expense_report_endpoint(
