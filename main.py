@@ -3,7 +3,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app import summarize_text, investment_suggestion, loan_suggestion, side_hustle_recommendation
-
+from app import weekly_expense_report
+from app import financial_chatbot
 
 import uvicorn
 from pyngrok import ngrok
@@ -14,9 +15,9 @@ load_dotenv()
 
 app = FastAPI(title="KudiPAL")
 
-# ------------------------------------
+
 # CORS
-# ------------------------------------
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -24,9 +25,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ------------------------------------
+
 # IN-MEMORY LANGUAGE STORE
-# ------------------------------------
+
+
 USER_LANG = {}
 
 def get_lang(user_id):
@@ -39,10 +41,8 @@ def set_language(user_id: str, lang: str):
     return {"status": "ok", "language": lang}
 
 
-# ------------------------------------
-# ROUTES
-# ------------------------------------
 
+# ROUTES
 @app.post("/summary")
 async def summary(user_id: str, data: dict):
     return await summarize_text(data, get_lang(user_id))
@@ -62,16 +62,38 @@ async def loan(user_id: str, amount: int, months: int):
 async def side_hustle(user_id: str, skills: str, urgency: str):
     return await side_hustle_recommendation(skills, urgency, get_lang(user_id))
 
+@app.post("/weekly-expense-report")
+async def weekly_expense_report_endpoint(
+    user_id: str,
+    income: int,
+    expenses: dict
+):
+    return await weekly_expense_report(
+        expenses,
+        income,
+        get_lang(user_id)
+    )
+
+
+@app.post("/chat")
+async def chat(
+    user_id: str,
+    message: str
+):
+    return await financial_chatbot(
+        user_id,
+        message,
+        get_lang(user_id)
+    )
+
 
 @app.get("/health")
 def health():
     return {"status": "running"}
 
 
-# ------------------------------------
-# NGROK AUTO URL
-# ------------------------------------
 
+# NGROK AUTO URL
 ngrok_token = os.getenv("ngrok_auth")
 ngrok.set_auth_token(ngrok_token)
 
@@ -79,8 +101,7 @@ public_url = ngrok.connect(8000)
 print("🚀 Public URL:", public_url)
 
 
-# ------------------------------------
+
 # RUN SERVER
-# ------------------------------------
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
