@@ -178,7 +178,7 @@ const AISuggestion = () => {
 
   useEffect(() => {
     if (!isPaused) {
-      intervalRef.current = setInterval(nextSlide, 3000);
+      intervalRef.current = setInterval(nextSlide, 8000);
     }
     return () => {
       clearInterval(intervalRef.current);
