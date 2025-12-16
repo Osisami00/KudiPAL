@@ -9,6 +9,7 @@ const AIChat = ({ onClose }) => {
   const messagesEndRef = useRef(null)
   const mediaRecorderRef = useRef(null)
   const audioChunksRef = useRef([])
+  const USER_ID = '12' // replace with dynamic user id if needed
 
   const languages = [
     { code: 'en', name: 'English', greeting: "Hello! I'm KudiPAL AI. How can I assist you with your banking today?" },
@@ -16,8 +17,15 @@ const AIChat = ({ onClose }) => {
     { code: 'ig', name: 'Igbo', greeting: "Ndewo! Abụ m KudiPAL AI. Kedu ka m ga-esi nyere gị aka na ụlọ akụ gị taa?" },
     { code: 'ha', name: 'Hausa', greeting: "Sannu! Ni ne KudiPAL AI. Ta yaya zan iya taimaka muku da bankin ku yau?" },
     { code: 'pcm', name: 'Pidgin', greeting: "Hello! Na KudiPAL AI be dis. How I fit help you with your banking matter today?" },
-    // { code: 'ibb', name: 'Ibibio', greeting: "Mɔkɔm! Emi KudiPAL AI. Nte emi nditọ nditọ ami ndi bank ami akpakpa idem?" }
   ]
+
+  const aiSuggestions = {
+    en: ["AI Summary", "Loan Options", "Investment Ideas", "Side Hustle Tips", "Weekly Expense Report"],
+    yo: ["Àkótán AI", "Àwọn ìṣòwò Gbèsè", "Ìdílé Idoko-owo", "Ìmọ̀ran Iṣẹ́ Alágbàṣe", "Ìròyìn Ìṣúná Ọ̀sẹ̀"],
+    ig: ["Nkọwa AI", "Nhọrọ Ọnụahịa", "Echiche Itinye Ego", "Atụmatụ Ọrụ N'akụkụ", "Akụkọ Ọsọ izu"],
+    ha: ["Takaitaccen AI", "Zaɓuɓɓukan Lamuni", "Shawarwari Zuba Jari", "Shawarwarin Side Hustle", "Rahoton Kuɗi na Mako"],
+    pcm: ["AI Summary", "Loan Options", "Investment Ideas", "Side Hustle Tips", "Weekly Expense Report"]
+  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -27,13 +35,20 @@ const AIChat = ({ onClose }) => {
     scrollToBottom()
   }, [messages])
 
-  const handleLanguageSelect = (language) => {
+  const handleLanguageSelect = async (language) => {
     setSelectedLanguage(language)
     setShowLanguageModal(false)
     
-    // Add greeting message in selected language
     const greeting = languages.find(lang => lang.code === language)?.greeting || languages[0].greeting
     setMessages([{ id: 1, text: greeting, sender: 'ai' }])
+
+    try {
+      await fetch(`https://preevidently-nondefamatory-rosita.ngrok-free.dev/set-language?user_id=${USER_ID}&lang=${language}`, {
+        method: 'POST'
+      })
+    } catch (error) {
+      console.error('Error setting language:', error)
+    }
   }
 
   const handleSend = async () => {
@@ -42,71 +57,63 @@ const AIChat = ({ onClose }) => {
     const userMessage = { id: messages.length + 1, text: input, sender: 'user' }
     setMessages([...messages, userMessage])
     setInput('')
-    
-    // Show typing indicator
+
     const typingIndicator = { id: 'typing', text: 'Typing...', sender: 'ai', isTyping: true }
     setMessages(prev => [...prev, typingIndicator])
-    
-    try {
-      // Call Awarri AI API
-      const response = await fetch('https://api.awarri.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer YOUR_AWARRI_API_KEY`, // Replace with actual API key
-        },
-        body: JSON.stringify({
-          model: 'awarri-llm',
-          messages: [
-            {
-              role: 'system',
-              content: `You are KudiPAL AI, a banking assistant. Respond in the user's selected language: ${selectedLanguage}. Provide helpful banking advice.`
-            },
-            ...messages.map(msg => ({
-              role: msg.sender === 'user' ? 'user' : 'assistant',
-              content: msg.text
-            })),
-            {
-              role: 'user',
-              content: input
-            }
-          ],
-          language: selectedLanguage
-        })
-      })
 
-      // Remove typing indicator
+    try {
+      const response = await fetch(
+        `https://preevidently-nondefamatory-rosita.ngrok-free.dev/chat?user_id=${USER_ID}&message=${encodeURIComponent(input)}`,
+        { method: 'POST' }
+      )
+
       setMessages(prev => prev.filter(msg => msg.id !== 'typing'))
 
       if (response.ok) {
-        const data = await response.json()
-        const aiResponse = { 
-          id: messages.length + 2, 
-          text: data.choices[0].message.content,
-          sender: 'ai' 
-        }
+        const data = await response.text()
+        const aiResponse = { id: messages.length + 2, text: data, sender: 'ai' }
         setMessages(prev => [...prev, aiResponse])
       } else {
         throw new Error('API call failed')
       }
     } catch (error) {
-      console.error('Error calling Awarri AI:', error)
-      // Fallback response
-      const fallbackResponses = {
-        en: "I understand you're asking about banking services. Based on your transaction history, I suggest considering our high-yield savings account for better returns.",
-        yo: "Mo gbọ́ pé o ń bèèrè nípa àwọn iṣẹ́ ìfowópamọ́. Gẹ́gẹ́ bí ìtàn iṣẹ́ rẹ, mo gba àṣẹ láti wo àkójọ ìfowópamọ́ giga-èrè wa.",
-        ig: "Aghọtara m na ị na-ajụ maka ọrụ ụlọ akụ. Dabere na akụkọ azụmahịa gị, m na-atụ aro ịtụle akaụntụ nchekwa ego dị elu anyị.",
-        ha: "Na gane cewa kuna tambayar game da ayyukan banki. Dangane da tarihin cinikin ku, Ina ba da shawarar yin la'akari da babban asusun ajiyar kuɗinmu.",
-        pcm: "I don understand say you dey ask about banking matter. Based on your transaction history, I suggest say make you consider our high-yield savings account.",
-        ibb: "Mmọ ọnọ etiene ke ọnọ ediwọn ediwọn ọnọ ami bank. Nte ediwọn ọnọ ami ọnọ ami ọnọ, mmọ ọnọ ediwọn ọnọ ami ọnọ ami ọnọ."
+      console.error('Chat API error:', error)
+      const fallback = "Sorry, I couldn't process your request. Please try again."
+      setMessages(prev => [...prev, { id: messages.length + 2, text: fallback, sender: 'ai' }])
+    }
+  }
+
+  const handleAISummary = async () => {
+    const transactionHistory = [
+      { date: "2025-12-01", description: "Deposit", amount: 5000 },
+      { date: "2025-12-05", description: "Withdrawal", amount: 2000 },
+      { date: "2025-12-10", description: "Transfer", amount: 1000 }
+    ]; 
+
+    const typingIndicator = { id: 'summary', text: 'Generating summary...', sender: 'ai', isTyping: true }
+    setMessages(prev => [...prev, typingIndicator]);
+
+    try {
+      const response = await fetch(
+        `https://preevidently-nondefamatory-rosita.ngrok-free.dev/summary?user_id=${USER_ID}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ additionalProp1: transactionHistory })
+        }
+      );
+
+      setMessages(prev => prev.filter(msg => msg.id !== 'summary'));
+
+      if (response.ok) {
+        const data = await response.text();
+        setMessages(prev => [...prev, { id: messages.length + 1, text: data, sender: 'ai' }]);
+      } else {
+        throw new Error('Summary API call failed');
       }
-      
-      const aiResponse = { 
-        id: messages.length + 2, 
-        text: fallbackResponses[selectedLanguage] || fallbackResponses.en,
-        sender: 'ai' 
-      }
-      setMessages(prev => [...prev, aiResponse])
+    } catch (error) {
+      console.error('AI Summary error:', error);
+      setMessages(prev => [...prev, { id: messages.length + 1, text: "Failed to generate summary.", sender: 'ai' }]);
     }
   }
 
@@ -120,11 +127,8 @@ const AIChat = ({ onClose }) => {
         audioChunksRef.current.push(event.data)
       }
 
-      mediaRecorderRef.current.onstop = async () => {
+      mediaRecorderRef.current.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' })
-        
-        // Convert speech to text (you would integrate with a speech-to-text API here)
-        // For demo purposes, we'll just add a placeholder
         setInput("Voice message recorded... (Speech-to-text would process this)")
       }
 
@@ -132,7 +136,7 @@ const AIChat = ({ onClose }) => {
       setIsRecording(true)
     } catch (error) {
       console.error('Error accessing microphone:', error)
-      alert('Microphone access is required for voice chat. Please enable it in your browser settings.')
+      alert('Microphone access is required for voice chat.')
     }
   }
 
@@ -144,15 +148,6 @@ const AIChat = ({ onClose }) => {
     }
   }
 
-  const aiSuggestions = {
-    en: ["How can I save more money?", "Best investment options", "Explain transaction fees", "Loan eligibility criteria"],
-    yo: ["Báwo ni mo se lè pọ̀wọ́ sí i dẹ̀bẹ̀ sí i?", "Àwọn ìṣọra tó dára jùlọ", "Ṣàlàyé owó iṣẹ́", "Àwọn ìdílé tó wulo fún gbèsè"],
-    ig: ["Kedu ka m ga-esi chekwa ego karịa?", "Nhọrọ itinye ego kachasị mma", "Kọwaa ụgwọ azụmahịa", "Njirimara tozuru oke maka mgbazinye ego"],
-    ha: ["Ta yaya zan iya ajiye kudi fiye?", "Mafi kyawun zaɓuɓɓukan saka hannun jari", "Bayyana kuɗin ciniki", "Ka'idojin cancantar lamuni"],
-    pcm: ["How I fit save more money?", "Better investment wey dey available", "Explain transaction fees", "Wetin dey make person qualify for loan"],
-    ibb: ["Nte emi nditọ nditọ ami ndi nditọ nditọ?", "Nte emi nditọ nditọ ami ndi nditọ nditọ", "Nte emi nditọ nditọ ami ndi nditọ nditọ", "Nte emi nditọ nditọ ami ndi nditọ nditọ"]
-  }
-
   const getCurrentSuggestions = () => {
     return aiSuggestions[selectedLanguage] || aiSuggestions.en
   }
@@ -162,17 +157,8 @@ const AIChat = ({ onClose }) => {
     return (
       <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl max-w-md w-full p-6">
-          <div className="flex items-center justify-center mb-6">
-            <div className="bg-gradient-to-r from-green-500 to-emerald-600 w-12 h-12 rounded-full flex items-center justify-center">
-              <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-              </svg>
-            </div>
-          </div>
-          
           <h2 className="text-xl font-bold text-center text-gray-900 mb-2">Select Your Language</h2>
           <p className="text-gray-600 text-center mb-6">Choose your preferred language for KudiPAL AI</p>
-          
           <div className="grid grid-cols-2 gap-3">
             {languages.map((language) => (
               <button
@@ -184,10 +170,7 @@ const AIChat = ({ onClose }) => {
               </button>
             ))}
           </div>
-          
-          <p className="text-xs text-gray-500 text-center mt-6">
-            You can change this later in settings
-          </p>
+          <p className="text-xs text-gray-500 text-center mt-6">You can change this later in settings</p>
         </div>
       </div>
     )
@@ -213,11 +196,7 @@ const AIChat = ({ onClose }) => {
             </div>
           </div>
         </div>
-        <button
-          onClick={onClose}
-          className="p-2 hover:bg-gray-100 rounded-lg"
-          aria-label="Close chat"
-        >
+        <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg" aria-label="Close chat">
           <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -227,19 +206,8 @@ const AIChat = ({ onClose }) => {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-[80%] rounded-2xl p-4 ${
-                message.sender === 'user'
-                  ? 'bg-blue-600 text-white rounded-br-none'
-                  : message.isTyping
-                  ? 'bg-gray-100 text-gray-500 italic'
-                  : 'bg-gray-100 text-gray-900 rounded-bl-none'
-              }`}
-            >
+          <div key={message.id} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[80%] rounded-2xl p-4 ${message.sender === 'user' ? 'bg-blue-600 text-white rounded-br-none' : message.isTyping ? 'bg-gray-100 text-gray-500 italic' : 'bg-gray-100 text-gray-900 rounded-bl-none'}`}>
               {message.isTyping ? (
                 <div className="flex items-center space-x-1">
                   <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
@@ -263,7 +231,10 @@ const AIChat = ({ onClose }) => {
             {getCurrentSuggestions().map((suggestion, index) => (
               <button
                 key={index}
-                onClick={() => setInput(suggestion)}
+                onClick={() => {
+                  if (suggestion === "AI Summary") handleAISummary();
+                  else setInput(suggestion);
+                }}
                 className="px-3 py-2 bg-green-50 text-green-700 text-sm rounded-full hover:bg-green-100 transition"
               >
                 {suggestion}
@@ -276,16 +247,7 @@ const AIChat = ({ onClose }) => {
       {/* Input Area */}
       <div className="border-t border-gray-200 p-4 bg-gray-50">
         <div className="flex items-center space-x-2">
-          {/* Voice Recording Button */}
-          <button
-            onClick={isRecording ? stopVoiceRecording : startVoiceRecording}
-            className={`p-3 rounded-full ${
-              isRecording 
-                ? 'bg-red-500 text-white animate-pulse' 
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-            aria-label={isRecording ? "Stop recording" : "Start voice recording"}
-          >
+          <button onClick={isRecording ? stopVoiceRecording : startVoiceRecording} className={`p-3 rounded-full ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`} aria-label={isRecording ? "Stop recording" : "Start voice recording"}>
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               {isRecording ? (
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -294,41 +256,23 @@ const AIChat = ({ onClose }) => {
               )}
             </svg>
           </button>
-          
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Type your message..."
-            className="flex-1 border border-gray-300 rounded-full px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500"
-          />
-          
-          <button
-            onClick={handleSend}
-            disabled={!input.trim()}
-            className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-3 rounded-full hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
+
+          <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleSend()} placeholder="Type your message..." className="flex-1 border border-gray-300 rounded-full px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500" />
+
+          <button onClick={handleSend} disabled={!input.trim()} className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-3 rounded-full hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
             </svg>
           </button>
         </div>
-        
+
         <div className="flex justify-between items-center mt-2">
-          <p className="text-xs text-gray-500">
-            Powered by <span className="font-semibold">Awarri AI</span>
-          </p>
-          <button
-            onClick={() => setShowLanguageModal(true)}
-            className="text-xs text-green-600 hover:text-green-800"
-          >
-            Change language
-          </button>
+          <p className="text-xs text-gray-500">Powered by <span className="font-semibold">Awarri AI</span></p>
+          <button onClick={() => setShowLanguageModal(true)} className="text-xs text-green-600 hover:text-green-800">Change language</button>
         </div>
       </div>
     </div>
   )
 }
 
-export default AIChat;
+export default AIChat
